@@ -40,6 +40,7 @@ io.on('connection', async (socket) => {
             // Create a new Wish based on our Schema
             const newWish = new Wish({
                 message: wishData.message,
+                author: wishData.author,
                 x: wishData.x,
                 y: wishData.y,
                 z: wishData.z

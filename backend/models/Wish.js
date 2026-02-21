@@ -6,6 +6,7 @@ const wishSchema = new mongoose.Schema({
         requird: true,
         maxLength: 100,
     },
+    author: { type: String, default: 'Anonymous' },
     x: { type: Number, required: true},
     y: { type: Number, required: true},
     z: { type: Number, required: true},
