@@ -200,6 +200,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
     // --- THE FIX: We ONLY depend on socket. React will no longer destroy your world! ---
     }, [socket]); 
 
+   // Changed height from '100%' back to '100vh' for stability
     return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh' }} />;
 };
 

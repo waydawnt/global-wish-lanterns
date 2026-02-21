@@ -1,19 +1,27 @@
-.ui-container {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 90%;
-  max-width: 400px;
-  pointer-events: none; /* Allows clicking "through" the empty space to the 3D scene */
+/* Reset everything to prevent scrolling */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #000;
 }
 
+/* Force the app to strictly fit the dynamic screen */
+.App {
+  position: fixed; 
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh; /* NEW: Fallback for PC browsers! */
+  height: 100dvh; /* Mobile browsers will use this one */
+}
+
+/* Push the counter down to avoid the mobile notch/status bar */
 .lantern-count {
   position: absolute;
-  top: 20px;
+  top: max(40px, env(safe-area-inset-top)); 
   right: 20px;
   color: #ffaa00;
   font-weight: bold;
@@ -22,17 +30,32 @@
   padding: 10px 20px;
   border-radius: 15px;
   border: 1px solid rgba(255, 170, 0, 0.5);
-  pointer-events: none; /* Allows you to click the 3D sky behind the counter */
+  pointer-events: none;
   z-index: 10;
   box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);
 }
 
+/* Push UI up safely from the bottom bezel */
+.ui-container {
+  position: absolute;
+  bottom: max(30px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 90%;
+  max-width: 400px;
+  pointer-events: none;
+  z-index: 10;
+}
+
 input, button {
-  pointer-events: auto; /* Makes sure we CAN click the actual input and button */
+  pointer-events: auto;
   padding: 12px;
   border-radius: 25px;
   border: none;
-  font-size: 16px;
+  font-size: 16px; /* Exactly 16px prevents iOS from forcing a zoom-in */
 }
 
 button {
@@ -40,28 +63,23 @@ button {
   color: white;
   font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s;
 }
 
-button:active {
-  transform: scale(0.95);
-}
-
+/* Make the popup clickable and center it nicely */
 .message-popup {
   position: absolute;
-  top: 20%;
+  top: 40%; /* Slightly higher than center so the keyboard doesn't hide it */
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(255, 255, 255, 0.9);
-  color: #000000; /* Makes text black */
+  background: rgba(255, 255, 255, 0.95);
+  color: #000000;
   padding: 20px;
   border-radius: 15px;
   text-align: center;
   box-shadow: 0 0 20px rgba(0,0,0,0.5);
-  pointer-events: auto;
-}
-
-.message-popup p {
-  color: #000;
-  font-weight: bold;
+  pointer-events: auto; /* Allows you to tap the box directly */
+  z-index: 20;
+  width: 85%;
+  max-width: 350px;
+  cursor: pointer;
 }
