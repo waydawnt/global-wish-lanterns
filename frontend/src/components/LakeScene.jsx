@@ -2,97 +2,163 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
-// 修正 1 (Shūsei 1 - Fix 1): We need to pass 'socket' and 'onLanternClick' as props
-const LakeScene = ({ socket, onLanternClick }) => { 
+const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => { 
     const mountRef = useRef(null);
 
     useEffect(() => {
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 5, 15);
+        scene.fog = new THREE.FogExp2(0x000000, 0.005); 
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        camera.position.set(0, 0, 40); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000); 
         mountRef.current.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05;
-
-        const waterGeometry = new THREE.PlaneGeometry(300, 300);
-        const waterMaterial = new THREE.MeshBasicMaterial({ color: 0x001e0f });
-        const water = new THREE.Mesh(waterGeometry, waterMaterial);
-        water.rotation.x = -Math.PI / 2;
-        scene.add(water);
+        controls.dampingFactor = 0.05;
 
         const starGeometry = new THREE.BufferGeometry();
-        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 });
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8 });
         const starVertices = [];
-        for(let i = 0; i < 2000; i++) {
-            const x = (Math.random() - 0.5) * 300;
-            const y = Math.random() * 100 + 5;
-            const z = (Math.random() - 0.5) * 300;
-            starVertices.push(x, y, z);
+        for(let i = 0; i < 8000; i++) {
+            starVertices.push((Math.random() - 0.5) * 4000, (Math.random() - 0.5) * 4000, (Math.random() - 0.5) * 4000);
         }
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
         const stars = new THREE.Points(starGeometry, starMaterial);
         scene.add(stars);
 
-        // 修正 2 (Shūsei 2 - Fix 2): We need an array to store lanterns for the Raycaster later
         const lanterns = []; 
 
-        const spawnLantern = (x, y, z, message) => {
-            const lanternGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
-            const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.85 });
-            const lantern = new THREE.Mesh(lanternGeo, lanternMat);
+        // --- UPGRADED: Billboard Generator (Now supports custom widths for long dates) ---
+        const createBillboard = (text, yOffset, fontSize, color, canvasWidth = 512, spriteWidth = 6) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasWidth;
+            canvas.height = 128;
+            const context = canvas.getContext('2d');
             
-            const light = new THREE.PointLight(0xffaa00, 2, 10);
-            lantern.add(light);
+            context.font = `Bold ${fontSize}px Arial`;
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.shadowColor = 'rgba(0,0,0,1)'; 
+            context.shadowBlur = 8;
+            // Center the text based on whatever width we pass in
+            context.fillText(text, canvasWidth / 2, 64); 
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(spriteWidth, 1.5, 1); 
+            sprite.position.y = yOffset;
+            return sprite;
+        };
 
-            lantern.position.set(x, y, z);
+        const spawnLantern = (message, author, timestamp, isNewLiveLantern = false) => {
+            const lanternGroup = new THREE.Group();
+
+            const lanternGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
+            const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.9 });
+            const lanternMesh = new THREE.Mesh(lanternGeo, lanternMat);
+            const light = new THREE.PointLight(0xffaa00, 2, 10);
+
+            const safeAuthor = author || "Anonymous";
+            const safeMessage = message || "A silent wish...";
             
-            // 修正 3 (Shūsei 3 - Fix 3): Store the message inside the 3D object so we can read it when clicked!
-            lantern.userData = { message: message || "A silent wish..." }; 
+            // --- UPGRADED: Full Date Formatting ---
+            const dateObj = timestamp ? new Date(timestamp) : new Date();
+            const localTimeString = dateObj.toLocaleString(undefined, { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+
+            // Name uses standard width (512px). Time uses double width (1024px) so it fits!
+            const nameSprite = createBillboard(safeAuthor, 1.6, 40, '#ffaa00'); 
+            const timeSprite = createBillboard(localTimeString, -1.4, 24, '#aaaaaa', 1024, 12); 
+
+            lanternGroup.add(lanternMesh);
+            lanternGroup.add(light);
+            lanternGroup.add(nameSprite);
+            lanternGroup.add(timeSprite);
+
+            if (isNewLiveLantern) {
+                const distance = 20;
+                const direction = new THREE.Vector3();
+                camera.getWorldDirection(direction); 
+                lanternGroup.position.copy(camera.position).add(direction.multiplyScalar(distance));
+                lanternGroup.position.y -= 3; 
+            } else {
+                lanternGroup.position.set((Math.random() - 0.5) * 150, (Math.random() - 0.5) * 150, (Math.random() - 0.5) * 150);
+            }
             
-            scene.add(lantern);
-            lanterns.push(lantern); // Add to our array
+            lanternGroup.userData = { 
+                message: safeMessage,
+                author: safeAuthor,
+                time: localTimeString, 
+                floatSpeed: Math.random() * 0.03 + 0.01, 
+                swaySpeed: Math.random() * 0.02 + 0.01, 
+                swayOffset: Math.random() * Math.PI * 2 
+            }; 
+            
+            scene.add(lanternGroup);
+            lanterns.push(lanternGroup);
         };
 
         const animate = () => {
             requestAnimationFrame(animate);
             controls.update();
+            const time = Date.now() * 0.001;
+
+            lanterns.forEach(group => {
+                group.position.y += group.userData.floatSpeed;
+                group.position.x += Math.sin(time * group.userData.swaySpeed + group.userData.swayOffset) * 0.02;
+                if (group.position.y > 100) group.position.y = -100;
+            });
+
+            stars.rotation.y += 0.0001;
+            stars.rotation.x += 0.00005;
             renderer.render(scene, camera);
         };
         animate();
 
-        // --- G. CLICK/TOUCH DETECTION (Raycasting) ---
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
+        const canvasElement = renderer.domElement;
 
         const onClick = (event) => {
-            // Convert click position to "Normalized Device Coordinates" (-1 to +1)
-            // This tells Three.js exactly where on the 3D screen you tapped
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
 
-            // Update the ray with the camera and mouse position
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
             raycaster.setFromCamera(mouse, camera);
-
-            // See if the ray hits any of our lanterns
-            const intersects = raycaster.intersectObjects(lanterns);
+            const intersects = raycaster.intersectObjects(lanterns, true);
 
             if (intersects.length > 0) {
-                // We hit a lantern! Grab the message we saved in userData
-                const clickedMessage = intersects[0].object.userData.message;
-                
-                // Pass the message back up to the React App.jsx UI
-                onLanternClick(clickedMessage);
+                const hitObject = intersects[0].object;
+                const parentGroup = hitObject.parent;
+
+                if (parentGroup && parentGroup.userData.message) {
+                    const msg = parentGroup.userData.message;
+                    const auth = parentGroup.userData.author;
+                    const time = parentGroup.userData.time;
+                    
+                    onLanternClick(`"${msg}"\n— ${auth}\n(${time})`); 
+                }
+            } else {
+                onLanternClick(null); 
             }
         };
 
-        window.addEventListener('click', onClick);
-        // Also add touch support for mobile!
-        window.addEventListener('touchstart', (e) => onClick(e.touches[0]));
+        canvasElement.addEventListener('click', onClick);
+        canvasElement.addEventListener('touchstart', onClick, { passive: false });
 
         const handleResize = () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -101,37 +167,40 @@ const LakeScene = ({ socket, onLanternClick }) => {
         };
         window.addEventListener('resize', handleResize);
 
-        // 修正 4 (Shūsei 4 - Fix 4): Move the socket listeners ABOVE the return statement!
         if (socket) {
             socket.on('new_wish', (data) => {
-                spawnLantern(data.x, data.y, data.z, data.message);
+                spawnLantern(data.message, data.author, data.createdAt, true);
+                // Safe check before calling UI updates
+                if (typeof updateLanternCount === 'function') {
+                    updateLanternCount(prevCount => prevCount + 1);
+                }
             });
 
             socket.on('initial_wishes', (wishes) => {
-                wishes.forEach(w => spawnLantern(w.x, w.y, w.z, w.message));
+                wishes.forEach(w => spawnLantern(w.message, w.author, w.createdAt, false));
+                if (typeof updateLanternCount === 'function') {
+                    updateLanternCount(wishes.length);
+                }
             });
         }
 
-        // 修正 5 (Shūsei 5 - Fix 5): The return statement inside useEffect must be the VERY LAST thing.
         return () => {
             window.removeEventListener('resize', handleResize);
-            if (mountRef.current) {
+            canvasElement.removeEventListener('click', onClick);
+            canvasElement.removeEventListener('touchstart', onClick);
+            if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
                 mountRef.current.removeChild(renderer.domElement);
             }
-            // Good practice: turn off socket listeners when the component unmounts
             if (socket) {
-                window.removeEventListener('resize', handleResize);
-                window.removeEventListener('click', onClick); // NEW
-                window.removeEventListener('touchstart', onClick);
                 socket.off('new_wish');
                 socket.off('initial_wishes');
             }
+            renderer.dispose(); 
         };
-
-    // 修正 6 (Shūsei 6 - Fix 6): Add 'socket' to the dependency array
+    // --- THE FIX: We ONLY depend on socket. React will no longer destroy your world! ---
     }, [socket]); 
 
-    return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1 }} />;
+    return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh' }} />;
 };
 
 export default LakeScene;

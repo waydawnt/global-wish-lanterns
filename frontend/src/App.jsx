@@ -1,37 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import io from 'socket.io-client';
 import LakeScene from './components/LakeScene';
 import './App.css';
 
-// Connect to our Node.js server
-const socket = io('https://global-wish-lanterns-api.onrender.com');
+const socket = io('https://global-wish-lanterns-api.onrender.com'); // Remember your Render URL for production!
 
 function App() {
   const [wish, setWish] = useState('');
+  const [author, setAuthor] = useState(''); // NEW: State for the username
   const [activeMessage, setActiveMessage] = useState(null);
+  const [lanternCount, setLanternCount] = useState(0); 
 
   const releaseLantern = () => {
     if (!wish.trim()) return;
 
-    // Generate random coordinates for the lantern on the lake
     const wishData = {
       message: wish,
-      x: (Math.random() - 0.5) * 40, // Spread them out
-      y: 0.75,                       // Float on water surface
-      z: (Math.random() - 0.5) * 40
+      author: author.trim() || 'Anonymous', // NEW: Send the name (or default to Anonymous)
+      x: 0, // We don't need random X, Y, Z anymore because Three.js will handle it!
+      y: 0,
+      z: 0
     };
 
-    // Send to server!
     socket.emit('send_wish', wishData);
-    setWish(''); // Clear the box
+    setWish(''); 
   };
 
   return (
     <div className="App">
-      <LakeScene socket={socket} onLanternClick={(msg) => setActiveMessage(msg)} />
+      <div className="lantern-count">
+        🏮 Global Wishes: {lanternCount}
+      </div>
 
-      {/* The UI Overlay */}
+      <LakeScene 
+        socket={socket} 
+        onLanternClick={(msg) => setActiveMessage(msg)} 
+        updateLanternCount={setLanternCount} 
+      />
+
       <div className="ui-container">
+        {/* NEW: Input field for Name */}
+        <input 
+          type="text" 
+          placeholder="Your Name (Optional)" 
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          style={{ marginBottom: '5px' }}
+        />
         <input 
           type="text" 
           placeholder="Type a wish for the world..." 
@@ -41,10 +56,9 @@ function App() {
         <button onClick={releaseLantern}>Release Lantern 🏮</button>
       </div>
 
-      {/* Show message when a lantern is tapped */}
       {activeMessage && (
         <div className="message-popup" onClick={() => setActiveMessage(null)}>
-          <p>"{activeMessage}"</p>
+          <p>{activeMessage}</p>
           <small>(Tap to close)</small>
         </div>
       )}
