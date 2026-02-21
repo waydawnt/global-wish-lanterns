@@ -1,0 +1,44 @@
+.ui-container {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 90%;
+  max-width: 400px;
+  pointer-events: none; /* Allows clicking "through" the empty space to the 3D scene */
+}
+
+input, button {
+  pointer-events: auto; /* Makes sure we CAN click the actual input and button */
+  padding: 12px;
+  border-radius: 25px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  background-color: #ffaa00;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+.message-popup {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
