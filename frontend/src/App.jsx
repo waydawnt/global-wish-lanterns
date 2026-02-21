@@ -4,7 +4,7 @@ import LakeScene from './components/LakeScene';
 import './App.css';
 
 // Connect to our Node.js server
-const socket = io('http://localhost:5000');
+const socket = io('https://global-wish-lanterns-api.onrender.com');
 
 function App() {
   const [wish, setWish] = useState('');
