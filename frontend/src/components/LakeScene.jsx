@@ -33,7 +33,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
 
         const lanterns = []; 
 
-        // --- UPGRADED: Billboard Generator (Now supports custom widths for long dates) ---
+        // --- Billboard Generator ---
         const createBillboard = (text, yOffset, fontSize, color, canvasWidth = 512, spriteWidth = 6) => {
             const canvas = document.createElement('canvas');
             canvas.width = canvasWidth;
@@ -45,7 +45,6 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             context.textAlign = 'center';
             context.shadowColor = 'rgba(0,0,0,1)'; 
             context.shadowBlur = 8;
-            // Center the text based on whatever width we pass in
             context.fillText(text, canvasWidth / 2, 64); 
             
             const texture = new THREE.CanvasTexture(canvas);
@@ -67,7 +66,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             const safeAuthor = author || "Anonymous";
             const safeMessage = message || "A silent wish...";
             
-            // --- UPGRADED: Full Date Formatting ---
+            // Full Date Formatting
             const dateObj = timestamp ? new Date(timestamp) : new Date();
             const localTimeString = dateObj.toLocaleString(undefined, { 
                 weekday: 'long', 
@@ -78,7 +77,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 minute: '2-digit' 
             });
 
-            // Name uses standard width (512px). Time uses double width (1024px) so it fits!
+            // Name uses standard width. Time uses double width so long dates fit perfectly!
             const nameSprite = createBillboard(safeAuthor, 1.6, 40, '#ffaa00'); 
             const timeSprite = createBillboard(localTimeString, -1.4, 24, '#aaaaaa', 1024, 12); 
 
@@ -132,11 +131,9 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         const canvasElement = renderer.domElement;
 
         const onClick = (event) => {
-            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-
-            mouse.x = (clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            // A standard 'click' event works perfectly for both mouse and mobile without double-firing
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(lanterns, true);
@@ -152,13 +149,12 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                     
                     onLanternClick(`"${msg}"\n— ${auth}\n(${time})`); 
                 }
-            } else {
-                onLanternClick(null); 
             }
+            // Notice there is no "else" block here! Clicking empty space does nothing.
         };
 
+        // ONLY listening to 'click' to stop the mobile ghost tap bug
         canvasElement.addEventListener('click', onClick);
-        canvasElement.addEventListener('touchstart', onClick, { passive: false });
 
         const handleResize = () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -170,7 +166,6 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         if (socket) {
             socket.on('new_wish', (data) => {
                 spawnLantern(data.message, data.author, data.createdAt, true);
-                // Safe check before calling UI updates
                 if (typeof updateLanternCount === 'function') {
                     updateLanternCount(prevCount => prevCount + 1);
                 }
@@ -187,7 +182,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         return () => {
             window.removeEventListener('resize', handleResize);
             canvasElement.removeEventListener('click', onClick);
-            canvasElement.removeEventListener('touchstart', onClick);
+            
             if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
                 mountRef.current.removeChild(renderer.domElement);
             }
@@ -197,10 +192,10 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             }
             renderer.dispose(); 
         };
-    // --- THE FIX: We ONLY depend on socket. React will no longer destroy your world! ---
+    // ONLY depend on socket so React doesn't destroy the world!
     }, [socket]); 
 
-   // Changed height from '100%' back to '100vh' for stability
+    // Uses 100vh to ensure complete stability on PC and Mobile!
     return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh' }} />;
 };
 
