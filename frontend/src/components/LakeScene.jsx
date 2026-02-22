@@ -9,12 +9,10 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => { 
     const mountRef = useRef(null);
     
-    // Use refs for callbacks so we can use them inside useEffect without triggering re-renders
     const onLanternClickRef = useRef(onLanternClick);
     const updateLanternCountRef = useRef(updateLanternCount);
     const onLoadedRef = useRef(onLoaded);
 
-    // Keep the refs updated if the props change
     useEffect(() => {
         onLanternClickRef.current = onLanternClick;
         updateLanternCountRef.current = updateLanternCount;
@@ -103,6 +101,10 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
                         child.material.transparent = true;
                         child.material.opacity = 0.85;
                         child.material.side = THREE.DoubleSide;
+                        
+                        // FIX: We make the lantern material self-glowing (Emissive)
+                        // This removes the need for heavy PointLights!
+                        child.material.emissive = new THREE.Color(0xffaa00);
                     }
                 });
 
@@ -137,11 +139,19 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
         const spawnLantern = (message, author, timestamp, isNewLiveLantern = false, loadedModelPrefab) => {
             const lanternGroup = new THREE.Group();
             
-            const light = new THREE.PointLight(0xffaa00, 2, 12);
-            light.position.set(0, 0.5, 0); 
-            lanternGroup.add(light);
+            // ❌ WE DELETED THE POINTLIGHT HERE to save your GPU!
 
             const customModel = loadedModelPrefab.clone();
+            const flickerMaterials = []; // Keep track of materials so we can flicker them
+
+            customModel.traverse((child) => {
+                if (child.isMesh) {
+                    // Clone the material so each lantern can flicker independently
+                    child.material = child.material.clone();
+                    flickerMaterials.push(child.material);
+                }
+            });
+
             lanternGroup.add(customModel);
 
             const safeAuthor = author || "Anonymous";
@@ -161,18 +171,22 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
             if (isNewLiveLantern) {
                 const distance = 20;
                 const direction = new THREE.Vector3();
-                camera.getWorldDirection(direction); 
+                camera.getWorldDirection(direction);
                 lanternGroup.position.copy(camera.position).add(direction.multiplyScalar(distance));
-                lanternGroup.position.y -= 3; 
+                lanternGroup.position.y -= 3;
             } else {
-                lanternGroup.position.set((Math.random() - 0.5) * 150, (Math.random() - 0.5) * 150, (Math.random() - 0.5) * 150);
+                lanternGroup.position.set(
+                    (Math.random() - 0.5) * 400,
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 400,
+                );
             }
             
             lanternGroup.userData = { 
                 message: safeMessage,
                 author: safeAuthor,
                 time: localTimeString, 
-                lightRef: light, 
+                materials: flickerMaterials, // Save the materials for the animate loop
                 floatSpeed: Math.random() * 0.03 + 0.01, 
                 swaySpeed: Math.random() * 0.02 + 0.01, 
                 swayOffset: Math.random() * Math.PI * 2,
@@ -181,6 +195,19 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
             
             scene.add(lanternGroup);
             lanterns.push(lanternGroup);
+
+            if (lanterns.length > 500) {
+                const oldestLantern = lanterns.shift();
+                scene.remove(oldestLantern);
+
+                oldestLantern.traverse((child) => {
+                    if (child.isMesh) {
+                        child.geometry.dispose();
+                        if (child.material.map) child.material.map.dispose();
+                        child.material.dispose();
+                    }
+                });
+            }
         };
 
         const animate = () => {
@@ -191,10 +218,18 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
             lanterns.forEach(group => {
                 group.position.y += group.userData.floatSpeed;
                 group.position.x += Math.sin(time * group.userData.swaySpeed + group.userData.swayOffset) * 0.02;
-                if (group.position.y > 100) group.position.y = -100;
 
+                if (group.position.y > 250) {
+                    group.position.y = -150;
+                    group.position.x = (Math.random() - 0.5) * 400;
+                    group.position.z = (Math.random() - 0.5) * 400;
+                }
+
+                // FIX: Make the material's glow flicker instead of a heavy PointLight!
                 const flicker = Math.sin(time * group.userData.flickerSpeed) * 0.5 + Math.cos(time * 3) * 0.2;
-                group.userData.lightRef.intensity = 2 + flicker; 
+                group.userData.materials.forEach(mat => {
+                    mat.emissiveIntensity = 1.5 + flicker; 
+                });
             });
 
             stars.rotation.y += 0.0001;
@@ -258,8 +293,6 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
             renderer.dispose(); 
         };
         
-    // FIXED: Only reload the 3D scene if the socket connection completely changes.
-    // Typing in the input box will no longer cause a flash.
     }, [socket]); 
 
     return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh' }} />;

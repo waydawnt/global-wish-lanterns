@@ -29,11 +29,24 @@ io.on('connection', async (socket) => {
     console.log(`🔌 A user connected: ${socket.id}`);
 
     try {
-        const allWishes = await Wish.find();
-        socket.emit('initial_wishes', allWishes);
+        // Generates a random number between 200 and 500
+        const randomAmount = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
+
+        const randomWishes = await Wish.aggregate([
+            { $sample: { size: randomAmount } }
+        ]);
+
+        socket.emit('initial_wishes', randomWishes);
     } catch (err) {
         console.error('Error fetching wishes from DB:', err);
     }
+
+    // try {
+    //     const allWishes = await Wish.find();
+    //     socket.emit('initial_wishes', allWishes);
+    // } catch (err) {
+    //     console.error('Error fetching wishes from DB:', err);
+    // }
 
     socket.on('send_wish', async (wishData) => {
         try {
