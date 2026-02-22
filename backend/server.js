@@ -29,9 +29,14 @@ io.on('connection', async (socket) => {
     console.log(`🔌 A user connected: ${socket.id}`);
 
     try {
+        // 1. Get the TRUE total number of wishes in the database
+        const totalWishesCount = await Wish.countDocuments();
+
+        // 2. Send that true total to the frontend counter
+        socket.emit('total_count', totalWishesCount);
+
         // Generates a random number between 200 and 500
         const randomAmount = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
-
         const randomWishes = await Wish.aggregate([
             { $sample: { size: randomAmount } }
         ]);

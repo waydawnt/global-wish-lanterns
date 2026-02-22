@@ -123,6 +123,12 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
             if (socket) {
                 socket.off('new_wish');
                 socket.off('initial_wishes');
+                socket.off('total_count'); // Make sure to clean up the new listener too!
+
+                // Listen for the TRUE database count
+                socket.on('total_count', (trueTotal) => {
+                    if (updateLanternCountRef.current) updateLanternCountRef.current(trueTotal);
+                });
 
                 socket.on('new_wish', (data) => {
                     spawnLantern(data.message, data.author, data.createdAt, true, modelToUse);
@@ -131,7 +137,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
 
                 socket.on('initial_wishes', (wishes) => {
                     wishes.forEach(w => spawnLantern(w.message, w.author, w.createdAt, false, modelToUse));
-                    if (updateLanternCountRef.current) updateLanternCountRef.current(wishes.length);
+                    // ❌ WE DELETED the line that counted the array length here!
                 });
             }
         }
