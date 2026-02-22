@@ -181,10 +181,13 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
                 lanternGroup.position.copy(camera.position).add(direction.multiplyScalar(distance));
                 lanternGroup.position.y -= 3;
             } else {
+                const spreadX = window.innerWidth < 768 ? 150 : 400;
+                const spreadZ = window.innerWidth < 768 ? 150 : 400;
+
                 lanternGroup.position.set(
-                    (Math.random() - 0.5) * 400,
+                    (Math.random() - 0.5) * spreadX,
                     (Math.random() - 0.5) * 200,
-                    (Math.random() - 0.5) * 400,
+                    (Math.random() - 0.5) * spreadZ,
                 );
             }
             
@@ -227,8 +230,12 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => 
 
                 if (group.position.y > 250) {
                     group.position.y = -150;
-                    group.position.x = (Math.random() - 0.5) * 400;
-                    group.position.z = (Math.random() - 0.5) * 400;
+
+                    const spreadX = window.innerWidth < 768 ? 150 : 400;
+                    const spreadZ = window.innerWidth < 768 ? 150 : 400;
+
+                    group.position.x = (Math.random() - 0.5) * spreadX;
+                    group.position.z = (Math.random() - 0.5) * spreadZ;
                 }
 
                 // FIX: Make the material's glow flicker instead of a heavy PointLight!
