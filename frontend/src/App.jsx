@@ -1,68 +1,103 @@
-import { useState } from 'react';
-import io from 'socket.io-client';
-import LakeScene from './components/LakeScene';
+import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+import LakeScene from './components/LakeScene'; 
 import './App.css';
 
-const socket = io('https://global-wish-lanterns-api.onrender.com'); // Put your real URL here!
+// FIX 1: Set autoConnect to false. We will manually connect later!
+const socket = io('https://global-wish-lanterns-api.onrender.com', {
+    autoConnect: false 
+});
 
 function App() {
-  const [wish, setWish] = useState('');
-  const [author, setAuthor] = useState(''); 
-  const [activeMessage, setActiveMessage] = useState(null);
-  const [lanternCount, setLanternCount] = useState(0); 
+    const [isLoading, setIsLoading] = useState(true);
+    const [lanternCount, setLanternCount] = useState(0);
+    const [message, setMessage] = useState("");
+    const [author, setAuthor] = useState("");
+    const [selectedLanternInfo, setSelectedLanternInfo] = useState(null);
 
-  const releaseLantern = () => {
-    if (!wish.trim()) return;
-
-    const wishData = {
-      message: wish,
-      author: author.trim() || 'Anonymous', 
-      x: 0, 
-      y: 0,
-      z: 0
+    const handleLanternClick = (info) => {
+        setSelectedLanternInfo(info);
     };
 
-    socket.emit('send_wish', wishData);
-    setWish(''); 
-  };
+    const closePopup = () => {
+        setSelectedLanternInfo(null);
+    };
 
-  return (
-    <div className="App">
-      <div className="lantern-count">
-        🏮 Global Wishes: {lanternCount}
-      </div>
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (message.trim() === "") return;
 
-      <LakeScene 
-        socket={socket} 
-        onLanternClick={(msg) => setActiveMessage(msg)} 
-        updateLanternCount={setLanternCount} 
-      />
+        socket.emit('send_wish', {
+            message: message,
+            author: author || "Anonymous",
+            // FIX 2: Send dummy coordinates so MongoDB doesn't crash!
+            x: 0, 
+            y: 0,
+            z: 0  
+        });
 
-      <div className="ui-container">
-        <input 
-          type="text" 
-          placeholder="Your Name (Optional)" 
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-        />
-        <input 
-          type="text" 
-          placeholder="Type a wish for the world..." 
-          value={wish}
-          onChange={(e) => setWish(e.target.value)}
-        />
-        <button onClick={releaseLantern}>Release Lantern 🏮</button>
-      </div>
+        setMessage("");
+        setAuthor("");
+    };
 
-      {/* This is the updated popup: tapping it closes it! */}
-      {activeMessage && (
-        <div className="message-popup" onClick={() => setActiveMessage(null)}>
-          <p style={{ whiteSpace: 'pre-line', margin: 0, fontWeight: 'bold' }}>{activeMessage}</p>
-          <small style={{ display: 'block', marginTop: '12px', color: '#555' }}>(Tap here to close)</small>
+    // This function runs the moment the 3D model finishes downloading
+    const handleModelLoaded = () => {
+        setIsLoading(false); // Hide the loading screen
+        socket.connect();    // Connect to backend NOW, so we don't miss the initial wishes!
+    };
+
+    return (
+        <div className="App">
+            
+            <div className={`loading-screen ${isLoading ? 'visible' : 'hidden'}`}>
+                <h1 className="glowing-text">Lighting the lanterns...</h1>
+            </div>
+
+            <LakeScene 
+                socket={socket} 
+                onLanternClick={handleLanternClick} 
+                updateLanternCount={setLanternCount}
+                onLoaded={handleModelLoaded} // Use our new function here
+            />
+
+            {!isLoading && (
+                <div className="ui-container">
+                    <div className="lantern-count">
+                        Global Wishes: {lanternCount}
+                    </div>
+
+                    <form className="wish-form" onSubmit={handleSubmit}>
+                        <input 
+                            type="text" 
+                            placeholder="Your Name (Optional)" 
+                            value={author}
+                            onChange={(e) => setAuthor(e.target.value)}
+                            className="input-author"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="Type your wish..." 
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            className="input-message"
+                            required
+                        />
+                        <button type="submit" className="submit-btn">Release Lantern</button>
+                    </form>
+                </div>
+            )}
+
+            {selectedLanternInfo && (
+                <div className="popup-overlay" onClick={closePopup}>
+                    <div className="popup-box" onClick={(e) => e.stopPropagation()}>
+                        <p>{selectedLanternInfo}</p>
+                        <button onClick={closePopup} className="close-btn">Close</button>
+                    </div>
+                </div>
+            )}
+
         </div>
-      )}
-    </div>
-  );
+    );
 }
 
 export default App;

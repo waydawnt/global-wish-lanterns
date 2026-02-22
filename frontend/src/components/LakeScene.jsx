@@ -2,15 +2,28 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-// NEW: Post-processing imports for Bloom
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => { 
+const LakeScene = ({ socket, onLanternClick, updateLanternCount, onLoaded }) => { 
     const mountRef = useRef(null);
+    
+    // Use refs for callbacks so we can use them inside useEffect without triggering re-renders
+    const onLanternClickRef = useRef(onLanternClick);
+    const updateLanternCountRef = useRef(updateLanternCount);
+    const onLoadedRef = useRef(onLoaded);
+
+    // Keep the refs updated if the props change
+    useEffect(() => {
+        onLanternClickRef.current = onLanternClick;
+        updateLanternCountRef.current = updateLanternCount;
+        onLoadedRef.current = onLoaded;
+    }, [onLanternClick, updateLanternCount, onLoaded]);
 
     useEffect(() => {
+        let animationId;
+
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.005); 
 
@@ -20,7 +33,6 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setClearColor(0x000000); 
-        // NEW: Tone mapping makes glowing colors look much more realistic and less "washed out"
         renderer.toneMapping = THREE.ReinhardToneMapping; 
         mountRef.current.appendChild(renderer.domElement);
 
@@ -28,22 +40,19 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-        // --- NEW: POST-PROCESSING (THE BLOOM) ---
         const renderScene = new RenderPass(scene, camera);
         
-        // Settings: (Resolution, Strength, Radius, Threshold)
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.7,   // Strength of the glow (tweak this if it's too bright)
-            0.4,   // Radius/Softness of the glow
-            0.2    // Threshold: Only things brighter than 0.2 will glow
+            0.6,   
+            0.4,   
+            0.2    
         );
 
         const composer = new EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        // --- STARS ---
         const starGeometry = new THREE.BufferGeometry();
         const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8 });
         const starVertices = [];
@@ -70,6 +79,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             context.fillText(text, canvasWidth / 2, 64); 
             
             const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
             const sprite = new THREE.Sprite(spriteMaterial);
             sprite.scale.set(spriteWidth, 1.5, 1); 
@@ -79,9 +89,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
 
         const loader = new GLTFLoader();
         
-        // Backup Cylinder
         const backupGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
-        // NEW: Increased color brightness to trigger the Bloom effect
         const backupMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 }); 
         const backupPrefab = new THREE.Mesh(backupGeo, backupMat);
 
@@ -99,11 +107,13 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 });
 
                 startSockets(loadedModelPrefab);
+                if (onLoadedRef.current) onLoadedRef.current();
             }, 
             undefined, 
             (error) => {
                 console.warn("Could not find lantern.glb. Using backup cylinder.");
                 startSockets(backupPrefab);
+                if (onLoadedRef.current) onLoadedRef.current();
             }
         );
 
@@ -114,12 +124,12 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
 
                 socket.on('new_wish', (data) => {
                     spawnLantern(data.message, data.author, data.createdAt, true, modelToUse);
-                    if (typeof updateLanternCount === 'function') updateLanternCount(prevCount => prevCount + 1);
+                    if (updateLanternCountRef.current) updateLanternCountRef.current(prevCount => prevCount + 1);
                 });
 
                 socket.on('initial_wishes', (wishes) => {
                     wishes.forEach(w => spawnLantern(w.message, w.author, w.createdAt, false, modelToUse));
-                    if (typeof updateLanternCount === 'function') updateLanternCount(wishes.length);
+                    if (updateLanternCountRef.current) updateLanternCountRef.current(wishes.length);
                 });
             }
         }
@@ -127,9 +137,8 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         const spawnLantern = (message, author, timestamp, isNewLiveLantern = false, loadedModelPrefab) => {
             const lanternGroup = new THREE.Group();
             
-            // The Candle Light (Will trigger the Bloom pass)
             const light = new THREE.PointLight(0xffaa00, 2, 12);
-            light.position.set(0, 0.5, 0); // Position inside the lantern
+            light.position.set(0, 0.5, 0); 
             lanternGroup.add(light);
 
             const customModel = loadedModelPrefab.clone();
@@ -163,7 +172,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 message: safeMessage,
                 author: safeAuthor,
                 time: localTimeString, 
-                lightRef: light, // Save light to animate it
+                lightRef: light, 
                 floatSpeed: Math.random() * 0.03 + 0.01, 
                 swaySpeed: Math.random() * 0.02 + 0.01, 
                 swayOffset: Math.random() * Math.PI * 2,
@@ -175,7 +184,7 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
         };
 
         const animate = () => {
-            requestAnimationFrame(animate);
+            animationId = requestAnimationFrame(animate); 
             controls.update();
             const time = Date.now() * 0.001;
 
@@ -184,16 +193,13 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 group.position.x += Math.sin(time * group.userData.swaySpeed + group.userData.swayOffset) * 0.02;
                 if (group.position.y > 100) group.position.y = -100;
 
-                // --- NEW: THE CANDLE FLICKER ---
-                // Creates a natural low-high-low stutter
                 const flicker = Math.sin(time * group.userData.flickerSpeed) * 0.5 + Math.cos(time * 3) * 0.2;
-                group.userData.lightRef.intensity = 2 + flicker; // Base intensity of 2 + flicker
+                group.userData.lightRef.intensity = 2 + flicker; 
             });
 
             stars.rotation.y += 0.0001;
             stars.rotation.x += 0.00005;
             
-            // NEW: Use Composer instead of Renderer to apply the Bloom!
             composer.render();
         };
         animate();
@@ -216,7 +222,9 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 }
 
                 if (hitObject && hitObject.userData.message) {
-                    onLanternClick(`"${hitObject.userData.message}"\n— ${hitObject.userData.author}\n(${hitObject.userData.time})`); 
+                    if (onLanternClickRef.current) {
+                        onLanternClickRef.current(`"${hitObject.userData.message}"\n— ${hitObject.userData.author}\n(${hitObject.userData.time})`);
+                    }
                 }
             }
         };
@@ -227,7 +235,6 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            // NEW: Composer must also be resized when the window changes
             composer.setSize(window.innerWidth, window.innerHeight);
         };
         window.addEventListener('resize', handleResize);
@@ -236,6 +243,8 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
             window.removeEventListener('resize', handleResize);
             canvasElement.removeEventListener('click', onClick);
             
+            cancelAnimationFrame(animationId);
+            
             if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
                 mountRef.current.removeChild(renderer.domElement);
             }
@@ -243,8 +252,14 @@ const LakeScene = ({ socket, onLanternClick, updateLanternCount }) => {
                 socket.off('new_wish');
                 socket.off('initial_wishes');
             }
+            
+            renderer.forceContextLoss();
+            composer.dispose();
             renderer.dispose(); 
         };
+        
+    // FIXED: Only reload the 3D scene if the socket connection completely changes.
+    // Typing in the input box will no longer cause a flash.
     }, [socket]); 
 
     return <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh' }} />;
