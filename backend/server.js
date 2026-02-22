@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const filter = require('leo-profanity');
 
 const Wish = require('./models/Wish');
 
@@ -55,13 +56,22 @@ io.on('connection', async (socket) => {
 
     socket.on('send_wish', async (wishData) => {
         try {
+            let finalMessage = wishData.message;
+
+            // Check for bad words
+            if (filter.check(finalMessage)) {
+                // Convert the bad words into a happy thought!
+                finalMessage = "I wish for peace, love, and happiness for everyone. 🌸";
+
+                // Send a private message back to the troll telling them what happened
+                socket.emit('wish_rejected', "Let's keep the sky peaceful! We changed your words to a positive wish.");
+            }
+
             // Create a new Wish based on our Schema
             const newWish = new Wish({
-                message: wishData.message,
-                author: wishData.author,
-                x: wishData.x,
-                y: wishData.y,
-                z: wishData.z
+                message: finalMessage,
+                author: wishData.author || "Anonymous",
+                x: 0, y: 0, z: 0
             });
             
             // Save it permanently to MongoDB Atlas

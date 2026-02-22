@@ -46,6 +46,16 @@ function App() {
         socket.connect();    // Connect to backend NOW, so we don't miss the initial wishes!
     };
 
+    useEffect(() => {
+        socket.on('wish_rejected', (warningMessage) => {
+            alert(warningMessage);
+        });
+
+        return () => {
+            socket.off('wish_rejected');
+        };
+    }, []);
+
     return (
         <div className="App">
             
