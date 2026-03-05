@@ -5,6 +5,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const filter = require('leo-profanity');
+const https = require('https');
 
 const Wish = require('./models/Wish');
 
@@ -99,3 +100,15 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`🚀 Server listening on port ${PORT}`);
 });
+
+setInterval(() => {
+    const backendUrl = 'https://global-wish-lanterns-api.onrender.com';
+
+    https.get(backendUrl, (resp) => {
+        if (resp.statusCode === 200) {
+            console.log('✅ Self-ping successful: Server kept alive');
+        }
+    }).on('error', (err) => {
+        console.error('❌ Self-ping failed:', err.message);
+    });
+}, 14 * 60 * 1000);

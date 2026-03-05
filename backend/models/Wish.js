@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const wishSchema = new mongoose.Schema({
     message: {
         type: String,
-        requird: true,
-        maxLength: 100,
+        required: true,
+        maxLength: 300,
     },
     author: { type: String, default: 'Anonymous' },
     x: { type: Number, required: true},

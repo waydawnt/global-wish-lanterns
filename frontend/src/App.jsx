@@ -85,7 +85,8 @@ function App() {
                             className="input-author"
                         />
                         <input 
-                            type="text" 
+                            type="text"
+                            maxLength={300} 
                             placeholder="Type your wish..." 
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}

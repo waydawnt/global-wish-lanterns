@@ -189,6 +189,8 @@ body {
   width: 90%;
   text-align: center;
   box-shadow: 0 0 40px rgba(255, 170, 0, 0.2), inset 0 0 20px rgba(0,0,0,0.8);
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .popup-box p {
