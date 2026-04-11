@@ -13,7 +13,8 @@ export default function AdminDashboard() {
 
   const fetchWishes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/wishes');
+      // FIX 1: Point to Render, not Localhost!
+      const res = await axios.get('https://global-wish-lanterns-api.onrender.com/api/wishes');
       setWishes(res.data);
     } catch (err) {
       console.error("Failed to load wishes", err);
@@ -47,7 +48,8 @@ export default function AdminDashboard() {
     if (!confirmDelete) return;
 
     try {
-      const res = await axios.delete('http://localhost:5000/api/wishes/bulk', {
+      // FIX 2: Point to Render, not Localhost!
+      const res = await axios.delete('https://global-wish-lanterns-api.onrender.com/api/wishes/bulk', {
         data: { ids: selectedIds, adminPassword: password }
       });
       
