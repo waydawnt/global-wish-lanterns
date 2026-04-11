@@ -6,7 +6,6 @@ export default function AdminDashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [password, setPassword] = useState("");
 
-  // Fetch all wishes when the page loads
   useEffect(() => {
     fetchWishes();
   }, []);
@@ -20,7 +19,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Toggle a single checkbox
   const toggleSelect = (id) => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
@@ -29,16 +27,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Select or Deselect all checkboxes
   const toggleSelectAll = () => {
     if (selectedIds.length === wishes.length && wishes.length > 0) {
-      setSelectedIds([]); // Deselect all
+      setSelectedIds([]); 
     } else {
-      setSelectedIds(wishes.map(wish => wish._id)); // Select all
+      setSelectedIds(wishes.map(wish => wish._id)); 
     }
   };
 
-  // Trigger the Bulk Delete
   const handleDelete = async () => {
     if (!password) return alert("Please enter the Admin Password.");
     if (selectedIds.length === 0) return alert("Please select at least one message to delete.");
@@ -53,7 +49,6 @@ export default function AdminDashboard() {
       
       alert(res.data.message);
       
-      // Update the UI by removing the deleted items
       setWishes(wishes.filter(wish => !selectedIds.includes(wish._id)));
       setSelectedIds([]); 
     } catch (err) {
@@ -66,7 +61,6 @@ export default function AdminDashboard() {
       <div style={styles.container}>
         <h2 style={styles.header}>🧹 Spam Cleanup Dashboard</h2>
         
-        {/* Controls Section */}
         <div style={styles.controls}>
           <input 
             type="password" 
@@ -80,37 +74,38 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* Data Table Wrapper (Allows horizontal scroll on mobile) */}
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
             <thead>
               <tr style={styles.tableHeadRow}>
-                <th style={styles.th}>
+                <th style={styles.thCheckbox}>
                   <input 
                     type="checkbox" 
                     onChange={toggleSelectAll} 
                     checked={selectedIds.length > 0 && selectedIds.length === wishes.length}
+                    style={{ cursor: 'pointer' }}
                   />
                 </th>
-                <th style={styles.th}>Message</th>
-                <th style={styles.th}>Author</th>
-                <th style={styles.th}>Date</th>
+                <th style={styles.thMessage}>Message</th>
+                <th style={styles.thAuthor}>Author</th>
+                <th style={styles.thDate}>Date</th>
               </tr>
             </thead>
             <tbody>
               {wishes.map(wish => (
                 <tr key={wish._id} style={styles.tableRow}>
-                  <td style={styles.td}>
+                  <td style={styles.tdCheckbox}>
                     <input 
                       type="checkbox" 
                       checked={selectedIds.includes(wish._id)}
                       onChange={() => toggleSelect(wish._id)} 
+                      style={{ cursor: 'pointer' }}
                     />
                   </td>
                   <td style={styles.tdMessage}>{wish.message}</td>
                   <td style={styles.tdAuthor}>{wish.author}</td>
                   <td style={styles.tdDate}>
-                    {new Date(wish.createdAt).toLocaleString()}
+                    {new Date(wish.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
               ))}
@@ -124,17 +119,17 @@ export default function AdminDashboard() {
   );
 }
 
-// --- CSS-in-JS STYLES TO OVERRIDE THE 3D WORLD ---
+// --- CSS-in-JS STYLES ---
 const styles = {
   page: {
-    position: 'absolute', // Forces it to sit on top
+    position: 'fixed',    // FIX: Changed from absolute to fixed
     top: 0,
     left: 0,
-    width: '100vw',
-    minHeight: '100vh',
+    right: 0,             // FIX: Locks the right side
+    bottom: 0,            // FIX: Locks the bottom so it knows exactly how tall the screen is
     backgroundColor: '#f3f4f6',
-    zIndex: 99999, // Hides the 3D canvas behind it
-    overflowY: 'auto', // Allows you to scroll up and down
+    zIndex: 99999, 
+    overflowY: 'auto',    // FIX: Forces the scrollbar to appear on THIS specific container
     padding: '20px',
     boxSizing: 'border-box',
     fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -152,13 +147,13 @@ const styles = {
     marginTop: 0,
     borderBottom: '2px solid #e5e7eb',
     paddingBottom: '15px',
-    color: '#111827' // Force dark text
+    color: '#111827' 
   },
   controls: {
     display: 'flex',
     gap: '10px',
     margin: '20px 0',
-    flexWrap: 'wrap' // Wraps to next line on small phone screens
+    flexWrap: 'wrap' 
   },
   input: {
     flex: '1',
@@ -167,7 +162,7 @@ const styles = {
     borderRadius: '6px',
     border: '1px solid #d1d5db',
     fontSize: '16px',
-    color: '#000' // Ensures password isn't invisible
+    color: '#000' 
   },
   deleteBtn: {
     backgroundColor: '#ef4444',
@@ -181,37 +176,38 @@ const styles = {
     whiteSpace: 'nowrap'
   },
   tableWrapper: {
-    overflowX: 'auto', // If on a small phone, table will scroll left/right inside the box
+    overflowX: 'auto', // Horizontal scroll for mobile
     width: '100%',
     border: '1px solid #e5e7eb',
-    borderRadius: '6px'
+    borderRadius: '6px',
+    backgroundColor: '#fff'
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
     textAlign: 'left',
-    minWidth: '600px' // Prevents table from crushing together on phones
+    minWidth: '600px' // Forces a minimum width so columns don't crush on phones
   },
   tableHeadRow: {
     backgroundColor: '#f9fafb',
     borderBottom: '2px solid #e5e7eb'
   },
-  th: {
-    padding: '12px 16px',
-    fontWeight: '600',
-    color: '#374151'
-  },
+  thCheckbox: { padding: '12px 16px', width: '40px' },
+  thMessage: { padding: '12px 16px', color: '#374151', fontWeight: '600' },
+  thAuthor: { padding: '12px 16px', color: '#374151', fontWeight: '600', width: '150px' },
+  thDate: { padding: '12px 16px', color: '#374151', fontWeight: '600', width: '120px' },
+  
   tableRow: {
     borderBottom: '1px solid #e5e7eb',
   },
-  td: {
+  tdCheckbox: {
     padding: '12px 16px',
     verticalAlign: 'top'
   },
   tdMessage: {
     padding: '12px 16px',
-    color: '#111827', // Dark text
-    maxWidth: '400px', // Stops super long spam from breaking the screen
+    color: '#111827', 
+    maxWidth: '400px', 
     wordWrap: 'break-word',
     lineHeight: '1.5'
   },
@@ -219,7 +215,7 @@ const styles = {
     padding: '12px 16px',
     color: '#4b5563',
     fontWeight: '500',
-    whiteSpace: 'nowrap'
+    wordWrap: 'break-word'
   },
   tdDate: {
     padding: '12px 16px',
