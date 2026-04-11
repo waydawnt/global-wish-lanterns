@@ -13,7 +13,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Required to read JSON from the Admin Dashboard
 
 const io = new Server(server, {
     cors: {
@@ -26,9 +26,16 @@ mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
 .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// The Real-Time Bridge
+// --- ANTI-SPAM MEMORY STORE ---
+// This keeps track of when an IP address last sent a wish
+const lastWishTimes = new Map();
+
+// --- THE REAL-TIME BRIDGE ---
 io.on('connection', async (socket) => {
     console.log(`🔌 A user connected: ${socket.id}`);
+
+    // Get user IP (Works locally and on Render)
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
 
     try {
         // 1. Get the TRUE total number of wishes in the database
@@ -48,23 +55,32 @@ io.on('connection', async (socket) => {
         console.error('Error fetching wishes from DB:', err);
     }
 
-    // try {
-    //     const allWishes = await Wish.find();
-    //     socket.emit('initial_wishes', allWishes);
-    // } catch (err) {
-    //     console.error('Error fetching wishes from DB:', err);
-    // }
-
     socket.on('send_wish', async (wishData) => {
         try {
-            let finalMessage = wishData.message;
+            let finalMessage = wishData.message || "";
 
-            // Check for bad words
+            // --- SPAM SHIELD 1: Minimum Length ---
+            if (finalMessage.trim().length < 5) {
+                socket.emit('wish_rejected', "Your wish is too short! Please write at least 5 meaningful characters.");
+                return; // Stop the code here
+            }
+
+            // --- SPAM SHIELD 2: Rate Limiting ---
+            const now = Date.now();
+            const lastTime = lastWishTimes.get(clientIp) || 0;
+            const cooldownPeriod = 30 * 1000; // 30 seconds cooldown
+
+            if (now - lastTime < cooldownPeriod) {
+                socket.emit('wish_rejected', "Take a deep breath! Please wait 30 seconds before sending another wish.");
+                return; // Stop the code here
+            }
+            
+            // If they pass the check, record their new time
+            lastWishTimes.set(clientIp, now);
+
+            // --- SPAM SHIELD 3: Profanity Filter ---
             if (filter.check(finalMessage)) {
-                // Convert the bad words into a happy thought!
                 finalMessage = "I wish for peace, love, and happiness for everyone. 🌸";
-
-                // Send a private message back to the troll telling them what happened
                 socket.emit('wish_rejected', "Let's keep the sky peaceful! We changed your words to a positive wish.");
             }
 
@@ -92,6 +108,40 @@ io.on('connection', async (socket) => {
     });
 });
 
+// --- ADMIN DASHBOARD REST ROUTES ---
+
+// 1. Fetch all wishes for the admin table
+app.get('/api/wishes', async (req, res) => {
+    try {
+        const wishes = await Wish.find().sort({ createdAt: -1 }).limit(1000); // Limit to 1000 so browser doesn't crash
+        res.json(wishes);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch data." });
+    }
+});
+
+// 2. Bulk Delete Route
+app.delete('/api/wishes/bulk', async (req, res) => {
+    const { ids, adminPassword } = req.body;
+
+    // Security Check: Change this to something you will remember!
+    if (adminPassword !== "mySuperSecretPassword123") {
+        return res.status(403).json({ error: "Unauthorized. Wrong Password." });
+    }
+
+    if (!ids || ids.length === 0) {
+        return res.status(400).json({ error: "No messages selected." });
+    }
+
+    try {
+        // Find and delete every wish ID that matches the array sent from React
+        const result = await Wish.deleteMany({ _id: { $in: ids } });
+        res.json({ message: `Success! Cleaned up ${result.deletedCount} spam messages.` });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to delete messages." });
+    }
+});
+
 app.get('/', (req, res) => {
     res.send('Global Wish Lanterns Server is running! 🏮');
 });
@@ -101,6 +151,7 @@ server.listen(PORT, () => {
     console.log(`🚀 Server listening on port ${PORT}`);
 });
 
+// Keeps the Render server awake
 setInterval(() => {
     const backendUrl = 'https://global-wish-lanterns-api.onrender.com';
 

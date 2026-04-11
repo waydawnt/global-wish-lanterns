@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import LakeScene from './components/LakeScene'; 
+import AdminDashboard from './components/AdminDashboard'; // Import your new Admin Dashboard!
 import './App.css';
 
 // FIX 1: Set autoConnect to false. We will manually connect later!
@@ -8,7 +10,8 @@ const socket = io('https://global-wish-lanterns-api.onrender.com', {
     autoConnect: false 
 });
 
-function App() {
+// --- We renamed your original App to MainWorld ---
+function MainWorld() {
     const [isLoading, setIsLoading] = useState(true);
     const [lanternCount, setLanternCount] = useState(0);
     const [message, setMessage] = useState("");
@@ -108,6 +111,25 @@ function App() {
             )}
 
         </div>
+    );
+}
+
+// --- This is the NEW App function that handles routing ---
+function App() {
+    return (
+        <Router>
+            <Routes>
+                {/* When people go to your main website (e.g., mywebsite.com/), 
+                  they see the 3D World 
+                */}
+                <Route path="/" element={<MainWorld />} />
+                
+                {/* When YOU go to your website and type /admin (e.g., mywebsite.com/admin), 
+                  you see the Spam Cleanup Dashboard!
+                */}
+                <Route path="/admin" element={<AdminDashboard />} />
+            </Routes>
+        </Router>
     );
 }
 
