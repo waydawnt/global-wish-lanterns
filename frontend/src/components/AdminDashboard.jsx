@@ -13,7 +13,6 @@ export default function AdminDashboard() {
 
   const fetchWishes = async () => {
     try {
-      // FIX 1: Point to Render, not Localhost!
       const res = await axios.get('https://global-wish-lanterns-api.onrender.com/api/wishes');
       setWishes(res.data);
     } catch (err) {
@@ -32,7 +31,7 @@ export default function AdminDashboard() {
 
   // Select or Deselect all checkboxes
   const toggleSelectAll = () => {
-    if (selectedIds.length === wishes.length) {
+    if (selectedIds.length === wishes.length && wishes.length > 0) {
       setSelectedIds([]); // Deselect all
     } else {
       setSelectedIds(wishes.map(wish => wish._id)); // Select all
@@ -48,7 +47,6 @@ export default function AdminDashboard() {
     if (!confirmDelete) return;
 
     try {
-      // FIX 2: Point to Render, not Localhost!
       const res = await axios.delete('https://global-wish-lanterns-api.onrender.com/api/wishes/bulk', {
         data: { ids: selectedIds, adminPassword: password }
       });
@@ -64,66 +62,175 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'sans-serif', background: '#f5f5f5', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-        
-        <h2 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>🧹 Spam Cleanup Dashboard</h2>
+    <div style={styles.page}>
+      <div style={styles.container}>
+        <h2 style={styles.header}>🧹 Spam Cleanup Dashboard</h2>
         
         {/* Controls Section */}
-        <div style={{ display: 'flex', gap: '10px', margin: '20px 0' }}>
+        <div style={styles.controls}>
           <input 
             type="password" 
             placeholder="Enter Admin Password" 
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ padding: '10px', flex: 1, borderRadius: '4px', border: '1px solid #ccc' }}
+            style={styles.input}
           />
-          <button 
-            onClick={handleDelete} 
-            style={{ background: '#ff4d4f', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
+          <button onClick={handleDelete} style={styles.deleteBtn}>
             Delete Selected ({selectedIds.length})
           </button>
         </div>
 
-        {/* Data Table */}
-        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#eee' }}>
-              <th style={{ padding: '10px' }}>
-                <input 
-                  type="checkbox" 
-                  onChange={toggleSelectAll} 
-                  checked={selectedIds.length > 0 && selectedIds.length === wishes.length}
-                />
-              </th>
-              <th style={{ padding: '10px' }}>Message</th>
-              <th style={{ padding: '10px' }}>Author</th>
-              <th style={{ padding: '10px' }}>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {wishes.map(wish => (
-              <tr key={wish._id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '10px' }}>
+        {/* Data Table Wrapper (Allows horizontal scroll on mobile) */}
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.tableHeadRow}>
+                <th style={styles.th}>
                   <input 
                     type="checkbox" 
-                    checked={selectedIds.includes(wish._id)}
-                    onChange={() => toggleSelect(wish._id)} 
+                    onChange={toggleSelectAll} 
+                    checked={selectedIds.length > 0 && selectedIds.length === wishes.length}
                   />
-                </td>
-                <td style={{ padding: '10px', maxWidth: '300px', wordWrap: 'break-word' }}>{wish.message}</td>
-                <td style={{ padding: '10px' }}>{wish.author}</td>
-                <td style={{ padding: '10px', color: '#888', fontSize: '0.9em' }}>
-                  {new Date(wish.createdAt).toLocaleDateString()}
-                </td>
+                </th>
+                <th style={styles.th}>Message</th>
+                <th style={styles.th}>Author</th>
+                <th style={styles.th}>Date</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {wishes.map(wish => (
+                <tr key={wish._id} style={styles.tableRow}>
+                  <td style={styles.td}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedIds.includes(wish._id)}
+                      onChange={() => toggleSelect(wish._id)} 
+                    />
+                  </td>
+                  <td style={styles.tdMessage}>{wish.message}</td>
+                  <td style={styles.tdAuthor}>{wish.author}</td>
+                  <td style={styles.tdDate}>
+                    {new Date(wish.createdAt).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        {wishes.length === 0 && <p style={{ textAlign: 'center', marginTop: '20px' }}>No messages found. The database is clean!</p>}
+        {wishes.length === 0 && <p style={styles.emptyText}>No messages found. The database is clean!</p>}
       </div>
     </div>
   );
 }
+
+// --- CSS-in-JS STYLES TO OVERRIDE THE 3D WORLD ---
+const styles = {
+  page: {
+    position: 'absolute', // Forces it to sit on top
+    top: 0,
+    left: 0,
+    width: '100vw',
+    minHeight: '100vh',
+    backgroundColor: '#f3f4f6',
+    zIndex: 99999, // Hides the 3D canvas behind it
+    overflowY: 'auto', // Allows you to scroll up and down
+    padding: '20px',
+    boxSizing: 'border-box',
+    fontFamily: 'system-ui, -apple-system, sans-serif'
+  },
+  container: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    backgroundColor: '#ffffff',
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    padding: '20px',
+    boxSizing: 'border-box',
+  },
+  header: {
+    marginTop: 0,
+    borderBottom: '2px solid #e5e7eb',
+    paddingBottom: '15px',
+    color: '#111827' // Force dark text
+  },
+  controls: {
+    display: 'flex',
+    gap: '10px',
+    margin: '20px 0',
+    flexWrap: 'wrap' // Wraps to next line on small phone screens
+  },
+  input: {
+    flex: '1',
+    minWidth: '200px',
+    padding: '10px 15px',
+    borderRadius: '6px',
+    border: '1px solid #d1d5db',
+    fontSize: '16px',
+    color: '#000' // Ensures password isn't invisible
+  },
+  deleteBtn: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '16px',
+    whiteSpace: 'nowrap'
+  },
+  tableWrapper: {
+    overflowX: 'auto', // If on a small phone, table will scroll left/right inside the box
+    width: '100%',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px'
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    textAlign: 'left',
+    minWidth: '600px' // Prevents table from crushing together on phones
+  },
+  tableHeadRow: {
+    backgroundColor: '#f9fafb',
+    borderBottom: '2px solid #e5e7eb'
+  },
+  th: {
+    padding: '12px 16px',
+    fontWeight: '600',
+    color: '#374151'
+  },
+  tableRow: {
+    borderBottom: '1px solid #e5e7eb',
+  },
+  td: {
+    padding: '12px 16px',
+    verticalAlign: 'top'
+  },
+  tdMessage: {
+    padding: '12px 16px',
+    color: '#111827', // Dark text
+    maxWidth: '400px', // Stops super long spam from breaking the screen
+    wordWrap: 'break-word',
+    lineHeight: '1.5'
+  },
+  tdAuthor: {
+    padding: '12px 16px',
+    color: '#4b5563',
+    fontWeight: '500',
+    whiteSpace: 'nowrap'
+  },
+  tdDate: {
+    padding: '12px 16px',
+    color: '#6b7280',
+    fontSize: '0.875rem',
+    whiteSpace: 'nowrap'
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: '30px',
+    color: '#6b7280',
+    fontStyle: 'italic'
+  }
+};
